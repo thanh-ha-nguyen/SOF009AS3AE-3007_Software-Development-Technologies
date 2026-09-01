@@ -255,10 +255,8 @@ impl Sanuli {
     }
 
     fn get_daily_word(date: NaiveDate) -> Vec<char> {
-        DAILY_WORDS
-            .lines()
-            .nth(Self::get_daily_word_index(date))
-            .unwrap()
+        let words: Vec<&str> = DAILY_WORDS.lines().collect();
+        words[Self::get_daily_word_index(date) % words.len()]
             .chars()
             .collect()
     }
