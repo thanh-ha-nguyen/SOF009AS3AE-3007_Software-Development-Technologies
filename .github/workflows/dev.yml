@@ -22,19 +22,21 @@ jobs:
         run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
 
       - name: Create build artifact
+        env:
+          RUSTFLAGS: "--cfg=web_sys_unstable_apis --remap-path-prefix $HOME=~"
         run: |
           rustup target add wasm32-unknown-unknown
           cargo install --locked trunk
           cargo install wasm-bindgen-cli
           chmod +x scripts/fetch-words.sh
           ./scripts/fetch-words.sh
+          trunk build --release
       
       - name: Upload build artifact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v4
         with:
           name: build-artifact
           path: ./dist
-          retention-days: 1
   
   deploy:
     name: Deploy to CSC Rahti
@@ -52,16 +54,21 @@ jobs:
           wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.15.9/openshift-client-linux-4.15.9.tar.gz
           tar -xzf openshift-client-linux-4.15.9.tar.gz
           mv oc kubectl /usr/local/bin/
+          rm openshift-client-linux-4.15.9.tar.gz README.md
 
       - name: Setup CSC Rahti environment
         run: |
           oc login --token=$CSC_TOKEN --server=https://api.2.rahti.csc.fi:6443
           oc project $CSC_PROJECT
 
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
       - name: Download build artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v5
         with:
           name: build-artifact
+          path: ./dist
       
       - name: Build and publish Docker image to CSC Rahti Image Registry
         run: |

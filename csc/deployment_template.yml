@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: ${CSC_PROJECT}
-  namespace: dev
   labels:
     app: ${CSC_PROJECT}
 spec:
@@ -16,7 +15,7 @@ spec:
     spec:
       containers:
         - name: ${CSC_PROJECT}
-          image: image-registry.apps.2.rahti.csc.fi/${CSC_PROJECT}/sanuli-webapp:dev
+          image: image-registry.openshift-image-registry.svc:5000/${CSC_PROJECT}/sanuli-webapp:dev
           ports:
             - containerPort: 8080
   replicas: 1
@@ -32,12 +31,11 @@ metadata:
   labels:
     app: ${CSC_PROJECT}
   name: ${CSC_PROJECT}
-  namespace: dev
 spec:
   ports:
-  - port: 8080
-    protocol: TCP
-    targetPort: 8080
+    - port: 8080
+      protocol: TCP
+      targetPort: 8080
   selector:
     app: ${CSC_PROJECT}
 ---
@@ -47,9 +45,10 @@ metadata:
   labels:
     app: ${CSC_PROJECT}
   name: ${CSC_PROJECT}
-  namespace: dev
 spec:
   to:
     kind: Service
     name: ${CSC_PROJECT}
     weight: 100
+  port:
+    targetPort: 8080
