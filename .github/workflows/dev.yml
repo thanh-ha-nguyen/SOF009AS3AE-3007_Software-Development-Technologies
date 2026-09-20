@@ -1,0 +1,75 @@
+name: Build and deploy to Dev environment
+
+concurrency:
+  group: dev
+  cancel-in-progress: true
+
+on: 
+  push:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Install Rush
+        run: curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+
+      - name: Create build artifact
+        run: |
+          rustup target add wasm32-unknown-unknown
+          cargo install --locked trunk
+          cargo install wasm-bindgen-cli
+          chmod +x scripts/fetch-words.sh
+          ./scripts/fetch-words.sh
+      
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: build-artifact
+          path: ./dist
+          retention-days: 1
+  
+  deploy:
+    name: Deploy to CSC Rahti
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: dev
+    env:
+      CSC_PROJECT: ${{ secrets.CSC_PROJECT }}
+      CSC_TOKEN: ${{ secrets.CSC_TOKEN }}
+    
+    steps:
+      - name: Install CSC Rahti CLI
+        run: |
+          wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/4.15.9/openshift-client-linux-4.15.9.tar.gz
+          tar -xzf openshift-client-linux-4.15.9.tar.gz
+          mv oc kubectl /usr/local/bin/
+
+      - name: Setup CSC Rahti environment
+        run: |
+          oc login --token=$CSC_TOKEN --server=https://api.2.rahti.csc.fi:6443
+          oc project $CSC_PROJECT
+
+      - name: Download build artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: build-artifact
+      
+      - name: Build and publish Docker image to CSC Rahti Image Registry
+        run: |
+          docker build -t image-registry.apps.2.rahti.csc.fi/$CSC_PROJECT/sanuli-webapp:dev .
+          docker login -p $(oc whoami -t) -u unused image-registry.apps.2.rahti.csc.fi
+          docker push image-registry.apps.2.rahti.csc.fi/$CSC_PROJECT/sanuli-webapp:dev
+      
+      - name: Deploy to CSC Rahti
+        run: |
+          envsubst < ./csc/deployment_template.yml > deployment.yml
+          oc apply -f deployment.yml
