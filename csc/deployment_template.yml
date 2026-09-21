@@ -18,6 +18,7 @@ spec:
           image: image-registry.openshift-image-registry.svc:5000/${CSC_PROJECT}/sanuli-webapp:dev
           ports:
             - containerPort: 8080
+              name: http
   replicas: 1
   strategy:
     type: RollingUpdate
@@ -33,7 +34,8 @@ metadata:
   name: ${CSC_PROJECT}
 spec:
   ports:
-    - port: 8080
+    - name: http
+      port: 8080
       protocol: TCP
       targetPort: 8080
   selector:
@@ -51,4 +53,7 @@ spec:
     name: ${CSC_PROJECT}
     weight: 100
   port:
-    targetPort: 8080
+    targetPort: http
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
